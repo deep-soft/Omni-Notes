@@ -37,6 +37,10 @@ jobs:
         run: |
           ./gradlew build
 
+      - name: List Build
+        run: |
+          ls -lR > lslR-build.txt
+
       - name: Assemble Release
         continue-on-error: true
         run: |
@@ -44,13 +48,19 @@ jobs:
 
       - name: List Release
         run: |
-          ls -lR > lslR.txt
+          ls -lR > lslR-release.txt
 
-      - name: Upload Artifact
+      - name: Upload Artifact Build
         uses: deep-soft/upload-artifact@v3
         with:
-          name: lslR.txt
-          path: lslR.txt
+          name: lslR-build.txt
+          path: lslR-build.txt
+
+      - name: Upload Artifact release
+        uses: deep-soft/upload-artifact@v3
+        with:
+          name: lslR-release.txt
+          path: lslR-release.txt
 
       - name: Upload apk
         uses: actions/upload-artifact@v2

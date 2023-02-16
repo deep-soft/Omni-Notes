@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-test:
-    name: Build and run tests
+    name: Build and publish prerelease
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout source code

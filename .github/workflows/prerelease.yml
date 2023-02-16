@@ -28,10 +28,10 @@ jobs:
 #          disable-animations: true
 #          script: ./gradlew -Pandroid.testInstrumentationRunnerArguments.notAnnotation=androidx.test.filters.FlakyTest,androidx.test.filters.LargeTest jacocoTestReport --stacktrace
 
-      - name: Assemble Release
+      - name: Create Release
         continue-on-error: true
         run: |
-          sh gradlew assembleRelease
+          sh ./gradlew
 
       - name: List Release
         run: |

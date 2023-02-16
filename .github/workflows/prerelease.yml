@@ -65,5 +65,29 @@ jobs:
       - name: Upload apk
         uses: actions/upload-artifact@v2
         with:
-          name: release apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: foss release apk
+          path: ./omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk
+
+      - name: Upload apk folder alpha
+        uses: actions/upload-artifact@v2
+        with:
+          name: alpha
+          path: ./omniNotes/build/outputs/apk/alpha/release
+
+      - name: Upload apk folder beta
+        uses: actions/upload-artifact@v2
+        with:
+          name: beta
+          path: ./omniNotes/build/outputs/apk/beta/release
+            
+      - name: Upload apk folder foss
+        uses: actions/upload-artifact@v2
+        with:
+          name: foss
+          path: ./omniNotes/build/outputs/apk/foss/release
+
+      - name: Upload apk folder play
+        uses: actions/upload-artifact@v2
+        with:
+          name: play
+          path: ./omniNotes/build/outputs/apk/play/release

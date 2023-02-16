@@ -55,7 +55,7 @@ jobs:
       - name: Prepare for sign apk
         run: |
           mkdir -p signed-apk; pushd signed-apk
-          cp ./omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk .
+          cp ../omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk .
 
       - uses: deep-soft/sign-android-release@master
         name: Sign app APK

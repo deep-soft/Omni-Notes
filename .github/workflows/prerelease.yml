@@ -1,4 +1,4 @@
-name: CI
+name: prerelease
 
 # on: [push, pull_request]
 on:

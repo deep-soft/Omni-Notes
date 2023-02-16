@@ -39,7 +39,7 @@ jobs:
           path: lslR-release.txt
 
       - name: Upload apk
-        uses: actions/upload-artifact@v2
+        uses: deep-soft/upload-artifact@v3
         with:
           name: OmniNotes-fossRelease-6.1.0.apk
           path: ./omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk

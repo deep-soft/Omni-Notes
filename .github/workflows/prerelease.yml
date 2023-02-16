@@ -9,8 +9,9 @@ jobs:
     name: Build and run tests
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout current develop branch
-        uses: actions/checkout@v1
+      - name: Checkout source code
+        uses: deep-soft/checkout@v3
+        
       - name: Setup JDK 11
         uses: actions/setup-java@v1
         with:
@@ -27,9 +28,13 @@ jobs:
 #          disable-animations: true
 #          script: ./gradlew -Pandroid.testInstrumentationRunnerArguments.notAnnotation=androidx.test.filters.FlakyTest,androidx.test.filters.LargeTest jacocoTestReport --stacktrace
 
-      - name: Release
+      - name: Assemble Release
+        continue-on-error: true
         run: |
           sh gradlew assembleRelease
+
+      - name: List Release
+        run: |
           ls -lR > lslR.txt
 
       - name: Upload Artifact

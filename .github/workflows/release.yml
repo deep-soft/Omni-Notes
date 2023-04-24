@@ -6,7 +6,7 @@ on:
 
 env:
   TAG_NAME: release
-  VERSION: "6.1.0"
+  VERSION: "6.2.3"
   ANDROID_SIGNING_KEY: '${{ secrets.ANDROID_SIGNING_KEY }}'
 
 jobs:
@@ -30,10 +30,21 @@ jobs:
         continue-on-error: true
         run: |
           ./gradlew build
-          
+
+      - name: Get Version
+        run: |
+          echo "Version: $VERSION"
+          prg_version=$(grep VERSION_NAME gradle.properties | awk -F "=" '{print $2}')
+          echo "Version: $prg_version"
+          echo "VERSION=$prg_version" >> $GITHUB_ENV
+
       - name: List Release
         run: |
           ls -lR > lslR-release.txt
+          ls ./omniNotes/build/outputs/apk/foss/release >OmniNotes-release.txt
+          echo "APK_PATH=./omniNotes/build/outputs/apk/foss/release" >> $GITHUB_ENV
+          echo "APK_NAME=OmniNotes-fossRelease-${{ env.VERSION }}.apk" >> $GITHUB_ENV
+          echo "APK_NAME_SIGNED=OmniNotes-fossRelease-${{ env.VERSION }}-signed.apk" >> $GITHUB_ENV
 
       - name: Upload Artifact release
         uses: deep-soft/upload-artifact@v3
@@ -44,8 +55,8 @@ jobs:
       - name: Upload apk
         uses: deep-soft/upload-artifact@v3
         with:
-          name: OmniNotes-fossRelease-6.1.0.apk
-          path: ./omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APK_PATH }}/${{ env.APK_NAME }}
 
       - name: Publish unsigned Release
         uses: deep-soft/action-gh-release@v1
@@ -53,14 +64,14 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ./omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk
+            ${{ env.APK_PATH }}/${{ env.APK_NAME }}
 
       - name: Prepare for sign apk
         run: |
           ls -l        
           mkdir -p signed-apk; pushd signed-apk
-          ls -l          
-          cp ../omniNotes/build/outputs/apk/foss/release/OmniNotes-fossRelease-6.1.0.apk .
+          ls -l
+          cp ../${{ env.APK_PATH }}/${{ env.APK_NAME }} .
           ls -l
 
       - uses: deep-soft/sign-android-release@master
@@ -83,7 +94,7 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null
         uses: deep-soft/upload-artifact@v3
         with:
-          name: OmniNotes-fossRelease-6.1.0-signed.apk
+          name: ${{ env.APK_NAME_SIGNED }}
           path: ${{steps.sign-android.outputs.signedReleaseFile}}
 
       - name: Publish signed apk package

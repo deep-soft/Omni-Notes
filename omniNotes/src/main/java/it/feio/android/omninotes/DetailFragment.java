@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2020 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2022 Federico Iosue (federico@iosue.it)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,10 +18,12 @@ package it.feio.android.omninotes;
 
 import static android.content.Context.CLIPBOARD_SERVICE;
 import static android.content.Context.LAYOUT_INFLATER_SERVICE;
+import static android.content.pm.PackageManager.FEATURE_CAMERA;
 import static androidx.core.view.ViewCompat.animate;
 import static it.feio.android.omninotes.BaseActivity.TRANSITION_HORIZONTAL;
 import static it.feio.android.omninotes.BaseActivity.TRANSITION_VERTICAL;
 import static it.feio.android.omninotes.MainActivity.FRAGMENT_DETAIL_TAG;
+import static it.feio.android.omninotes.OmniNotes.getAppContext;
 import static it.feio.android.omninotes.utils.ConstantsBase.ACTION_DISMISS;
 import static it.feio.android.omninotes.utils.ConstantsBase.ACTION_FAB_TAKE_PHOTO;
 import static it.feio.android.omninotes.utils.ConstantsBase.ACTION_MERGE;
@@ -624,7 +626,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           .content(R.string.remove_reminder)
           .positiveText(R.string.ok)
           .onPositive((dialog1, which) -> {
-            ReminderHelper.removeReminder(OmniNotes.getAppContext(), noteTmp);
+            ReminderHelper.removeReminder(getAppContext(), noteTmp);
             noteTmp.setAlarm(null);
             binding.fragmentDetailContent.reminderIcon
                 .setImageResource(R.drawable.ic_alarm_black_18dp);
@@ -715,13 +717,16 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     // Click events for images in gridview (zooms image)
     mGridView.setOnItemClickListener((parent, v, position, id) -> {
       Attachment attachment = (Attachment) parent.getAdapter().getItem(position);
-      Uri sharableUri = FileProviderHelper.getShareableUri(attachment);
+      Uri shareableAttachmentUri = mainActivity.getShareableAttachmentUri(attachment);
+      if (shareableAttachmentUri == null) {
+        return;
+      }
       Intent attachmentIntent;
       if (MIME_TYPE_FILES.equals(attachment.getMime_type())) {
 
         attachmentIntent = new Intent(Intent.ACTION_VIEW);
-        attachmentIntent.setDataAndType(sharableUri, StorageHelper.getMimeType(mainActivity,
-            sharableUri));
+        attachmentIntent.setDataAndType(shareableAttachmentUri, StorageHelper.getMimeType(mainActivity,
+            shareableAttachmentUri));
         attachmentIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent
             .FLAG_GRANT_WRITE_URI_PERMISSION);
         if (IntentChecker
@@ -798,10 +803,14 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       case "share":
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
         Attachment attachment = mAttachmentAdapter.getItem(attachmentPosition);
-        shareIntent
-            .setType(StorageHelper.getMimeType(OmniNotes.getAppContext(), attachment.getUri()));
-        shareIntent.putExtra(Intent.EXTRA_STREAM, FileProviderHelper.getShareableUri(attachment));
-        if (IntentChecker.isAvailable(OmniNotes.getAppContext(), shareIntent, null)) {
+        Uri shareableAttachmentUri = mainActivity.getShareableAttachmentUri(attachment);
+        if (shareableAttachmentUri == null) {
+          Toast.makeText(getActivity(), R.string.error_saving_attachments, Toast.LENGTH_SHORT).show();
+          break;
+        }
+        shareIntent.setType(StorageHelper.getMimeType(getAppContext(), attachment.getUri()));
+        shareIntent.putExtra(Intent.EXTRA_STREAM, shareableAttachmentUri);
+        if (IntentChecker.isAvailable(getAppContext(), shareIntent, null)) {
           startActivity(shareIntent);
         } else {
           mainActivity.showMessage(R.string.feature_not_available_on_this_device, ONStyle.WARN);
@@ -1097,11 +1106,6 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       default:
         LogDelegate.w("Invalid menu option selected");
     }
-
-    ((OmniNotes) getActivity().getApplication()).getAnalyticsHelper()
-        .trackActionFromResourceId(getActivity(),
-            item.getItemId());
-
     return super.onOptionsItemSelected(item);
   }
 
@@ -1205,10 +1209,8 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   }
 
   private void categorizeNote() {
-
-    String currentCategory =
-        noteTmp.getCategory() != null ? String.valueOf(noteTmp.getCategory().getId()) : null;
-    final List<Category> categories = Observable.from(DbHelper.getInstance().getCategories())
+    var currentCategory = noteTmp.getCategory() != null ? String.valueOf(noteTmp.getCategory().getId()) : null;
+    final var categories = Observable.from(DbHelper.getInstance().getCategories())
         .map(category -> {
           if (String.valueOf(category.getId()).equals(currentCategory)) {
             category.setCount(category.getCount() + 1);
@@ -1216,9 +1218,8 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           return category;
         }).toList().toBlocking().single();
 
-    final MaterialDialog dialog = new MaterialDialog.Builder(mainActivity)
+    var dialogBuilder = new MaterialDialog.Builder(mainActivity)
         .title(R.string.categorize_as)
-        .adapter(new CategoryRecyclerViewAdapter(mainActivity, categories), null)
         .positiveText(R.string.add_category)
         .positiveColorRes(R.color.colorPrimary)
         .negativeText(R.string.remove_category)
@@ -1231,17 +1232,24 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         .onNegative((dialog12, which) -> {
           noteTmp.setCategory(null);
           setTagMarkerColor(null);
-        }).build();
-
-    RecyclerViewItemClickSupport.addTo(dialog.getRecyclerView())
-        .setOnItemClickListener((recyclerView, position, v) -> {
-          noteTmp.setCategory(categories.get(position));
-          setTagMarkerColor(categories.get(position));
-          dialog.dismiss();
         });
 
-    dialog.show();
+    if (CollectionUtils.isNotEmpty(categories)) {
+      dialogBuilder.adapter(new CategoryRecyclerViewAdapter(mainActivity, categories), null);
+    }
 
+    final var dialog = dialogBuilder.build();
+
+    if (CollectionUtils.isNotEmpty(categories)) {
+      RecyclerViewItemClickSupport.addTo(dialog.getRecyclerView())
+          .setOnItemClickListener((recyclerView, position, v) -> {
+            noteTmp.setCategory(categories.get(position));
+            setTagMarkerColor(categories.get(position));
+            dialog.dismiss();
+          });
+    }
+
+    dialog.show();
   }
 
   private void showAttachmentsPopup() {
@@ -1283,12 +1291,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   }
 
   private void takePhoto() {
-    // Checks for camera app available
     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-    if (!IntentChecker
-        .isAvailable(mainActivity, intent, new String[]{PackageManager.FEATURE_CAMERA})) {
+    if (!IntentChecker.isAvailable(mainActivity, intent, new String[]{FEATURE_CAMERA})) {
       mainActivity.showMessage(R.string.feature_not_available_on_this_device, ONStyle.ALERT);
-
       return;
     }
     // Checks for created file validity
@@ -1297,18 +1302,16 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       mainActivity.showMessage(R.string.error, ONStyle.ALERT);
       return;
     }
-    attachmentUri = FileProviderHelper.getFileProvider(f);
+    attachmentUri = Uri.fromFile(f);
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-    intent.putExtra(MediaStore.EXTRA_OUTPUT, attachmentUri);
+    intent.putExtra(MediaStore.EXTRA_OUTPUT,  FileProviderHelper.getFileProvider(f));
     startActivityForResult(intent, TAKE_PHOTO);
   }
 
   private void takeVideo() {
     Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-    if (!IntentChecker
-        .isAvailable(mainActivity, takeVideoIntent, new String[]{PackageManager.FEATURE_CAMERA})) {
+    if (!IntentChecker.isAvailable(mainActivity, takeVideoIntent, new String[]{FEATURE_CAMERA})) {
       mainActivity.showMessage(R.string.feature_not_available_on_this_device, ONStyle.ALERT);
-
       return;
     }
     // File is stored in custom ON folder to speedup the attachment
@@ -1317,18 +1320,17 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       mainActivity.showMessage(R.string.error, ONStyle.ALERT);
       return;
     }
-    attachmentUri = FileProviderHelper.getFileProvider(f);
+    attachmentUri = Uri.fromFile(f);
     takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-    takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, attachmentUri);
-    String maxVideoSizeStr = "".equals(Prefs.getString("settings_max_video_size",
-        "")) ? "0" : Prefs.getString("settings_max_video_size", "");
+    takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT,  FileProviderHelper.getFileProvider(f));
+    String maxVideoSizeStr = "".equals(Prefs.getString("settings_max_video_size", ""))
+        ? "0" : Prefs.getString("settings_max_video_size", "");
     long maxVideoSize = parseLong(maxVideoSizeStr) * 1024L * 1024L;
     takeVideoIntent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxVideoSize);
     startActivityForResult(takeVideoIntent, TAKE_VIDEO);
   }
 
   private void takeSketch(Attachment attachment) {
-
     File f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_SKETCH_EXT);
     if (f == null) {
       mainActivity.showMessage(R.string.error, ONStyle.ALERT);
@@ -1495,10 +1497,10 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     exitMessage = trash ? getString(R.string.note_trashed) : getString(R.string.note_untrashed);
     exitCroutonStyle = trash ? ONStyle.WARN : ONStyle.INFO;
     if (trash) {
-      ShortcutHelper.removeShortcut(OmniNotes.getAppContext(), noteTmp);
-      ReminderHelper.removeReminder(OmniNotes.getAppContext(), noteTmp);
+      ShortcutHelper.removeShortcut(getAppContext(), noteTmp);
+      ReminderHelper.removeReminder(getAppContext(), noteTmp);
     } else {
-      ReminderHelper.addReminder(OmniNotes.getAppContext(), note);
+      ReminderHelper.addReminder(getAppContext(), note);
     }
     saveNote(this);
   }
@@ -1898,7 +1900,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
    * Adding shortcut on Home screen
    */
   private void addShortcut() {
-    ShortcutHelper.addShortcut(OmniNotes.getAppContext(), noteTmp);
+    ShortcutHelper.addShortcut(getAppContext(), noteTmp);
     mainActivity.showMessage(R.string.shortcut_added, ONStyle.INFO);
   }
 

@@ -1,3 +1,4 @@
+#2023-09-26 07:30
 name: release
 
 # on: [push, pull_request]
@@ -34,9 +35,11 @@ jobs:
       - name: Get Version
         run: |
           echo "Version: $VERSION"
-          prg_version=$(grep VERSION_NAME gradle.properties | awk -F "=" '{print $2}')
+          prg_version=$(grep VERSION_NAME gradle.properties | awk -F "=" '{print $2}' | tr ' ' _)
+          prg_vercode=$(grep VERSION_CODE gradle.properties | awk -F "=" '{print $2}')
           echo "Version: $prg_version"
-          echo "VERSION=$prg_version" >> $GITHUB_ENV
+          echo "Vercode: $prg_vercode"
+          echo "VERSION=$prg_version_$prg_vercode" >> $GITHUB_ENV
 
       - name: List Release
         run: |

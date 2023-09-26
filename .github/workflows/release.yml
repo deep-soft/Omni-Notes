@@ -1,4 +1,5 @@
-#2023-09-26 07:30
+# 2023-09-26 08:00
+# .github/workflows/release.yml
 name: release
 
 # on: [push, pull_request]
@@ -17,20 +18,6 @@ jobs:
     steps:
       - name: Checkout source code
         uses: deep-soft/checkout@v3
-        
-      - name: Setup JDK 11
-        uses: deep-soft/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: 11
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-      
-      - name: Build Release
-        continue-on-error: true
-        run: |
-          ./gradlew build
 
       - name: Get Version
         run: |
@@ -48,6 +35,20 @@ jobs:
           echo "APK_PATH=./omniNotes/build/outputs/apk/foss/release" >> $GITHUB_ENV
           echo "APK_NAME=OmniNotes-fossRelease-${{ env.VERSION }}.apk" >> $GITHUB_ENV
           echo "APK_NAME_SIGNED=OmniNotes-fossRelease-${{ env.VERSION }}-signed.apk" >> $GITHUB_ENV
+
+      - name: Setup JDK 11
+        uses: deep-soft/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      
+      - name: Build Release
+        continue-on-error: true
+        run: |
+          ./gradlew build
 
       - name: Upload Artifact release
         uses: deep-soft/upload-artifact@v3

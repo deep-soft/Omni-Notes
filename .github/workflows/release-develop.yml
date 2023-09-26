@@ -64,8 +64,8 @@ jobs:
       - name: Upload apk
         uses: deep-soft/upload-artifact@v3
         with:
-          name: ${{ env.APK_NAME }}
-          path: ${{ env.APK_PATH }}/${{ env.APK_NAME }}
+          name: "${{ env.APK_NAME }}"
+          path: "${{ env.APK_PATH }}/${{ env.APK_NAME }}"
 
       - name: Publish unsigned Release
         uses: deep-soft/action-gh-release@v1
@@ -73,14 +73,14 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ${{ env.APK_PATH }}/${{ env.APK_NAME }}
+            "${{ env.APK_PATH }}/${{ env.APK_NAME }}"
 
       - name: Prepare for sign apk
         run: |
           ls -l        
           mkdir -p signed-apk; pushd signed-apk
           ls -l
-          cp ../${{ env.APK_PATH }}/${{ env.APK_NAME }} .
+          cp "../${{ env.APK_PATH }}/${{ env.APK_NAME }}" .
           ls -l
 
       - uses: deep-soft/sign-android-release@master

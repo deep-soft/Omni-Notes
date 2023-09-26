@@ -28,14 +28,6 @@ jobs:
           echo "Vercode: $prg_vercode"
           echo "VERSION=$prg_version_$prg_vercode" >> $GITHUB_ENV
 
-      - name: List Release
-        run: |
-          ls -lR > lslR-release.txt
-          ls ./omniNotes/build/outputs/apk/foss/release >OmniNotes-release.txt
-          echo "APK_PATH=./omniNotes/build/outputs/apk/foss/release" >> $GITHUB_ENV
-          echo "APK_NAME=OmniNotes-fossRelease-${{ env.VERSION }}.apk" >> $GITHUB_ENV
-          echo "APK_NAME_SIGNED=OmniNotes-fossRelease-${{ env.VERSION }}-signed.apk" >> $GITHUB_ENV
-
       - name: Setup JDK 11
         uses: deep-soft/setup-java@v3
         with:
@@ -49,6 +41,14 @@ jobs:
         continue-on-error: true
         run: |
           ./gradlew build
+
+      - name: List Release
+        run: |
+          ls -lR > lslR-release.txt
+          ls ./omniNotes/build/outputs/apk/foss/release >OmniNotes-release.txt
+          echo "APK_PATH=./omniNotes/build/outputs/apk/foss/release" >> $GITHUB_ENV
+          echo "APK_NAME=OmniNotes-fossRelease-${{ env.VERSION }}.apk" >> $GITHUB_ENV
+          echo "APK_NAME_SIGNED=OmniNotes-fossRelease-${{ env.VERSION }}-signed.apk" >> $GITHUB_ENV
 
       - name: Upload Artifact release
         uses: deep-soft/upload-artifact@v3

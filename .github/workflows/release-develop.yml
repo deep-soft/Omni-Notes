@@ -1,0 +1,117 @@
+# 2023-09-26 16:00
+# .github/workflows/release.yml
+name: release - develop
+
+# on: [push, pull_request]
+on:
+  workflow_dispatch:
+
+env:
+  TAG_NAME: release-devel
+  VERSION: "6.2.3"
+  ANDROID_SIGNING_KEY: '${{ secrets.ANDROID_SIGNING_KEY }}'
+
+jobs:
+  build-and-test:
+    name: Build and publish release
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout source code
+        uses: deep-soft/checkout@v3
+
+      - name: Get Version
+        run: |
+          echo "Version: $VERSION"
+          prg_version=$(grep VERSION_NAME gradle.properties | awk -F "=" '{print $2}' | tr ' ' _)
+          prg_vercode=$(grep VERSION_CODE gradle.properties | awk -F "=" '{print $2}')
+          echo "Version: $prg_version"
+          echo "Vercode: $prg_vercode"
+          echo "VERSION=$prg_version" >> $GITHUB_ENV
+          echo "VERCODE=$prg_vercode" >> $GITHUB_ENV
+
+      - name: Print Version
+        run: |
+          echo "Version: $VERSION"
+
+      - name: Setup JDK 11
+        uses: deep-soft/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      
+      - name: Build Release
+        continue-on-error: true
+        run: |
+          ./gradlew build
+
+      - name: List Release
+        run: |
+          ls -lR > lslR-release.txt
+          ls ./omniNotes/build/outputs/apk/foss/release >OmniNotes-release.txt
+          echo "APK_PATH=./omniNotes/build/outputs/apk/foss/release" >> $GITHUB_ENV
+          echo "APK_NAME=OmniNotes-fossRelease-${{ env.VERSION }}.apk" >> $GITHUB_ENV
+          echo "APK_NAME_SIGNED=OmniNotes-fossRelease-${{ env.VERSION }}-signed.apk" >> $GITHUB_ENV
+
+      - name: Upload Artifact release
+        uses: deep-soft/upload-artifact@v3
+        with:
+          name: lslR-release.txt
+          path: lslR-release.txt
+
+      - name: Upload apk
+        uses: deep-soft/upload-artifact@v3
+        with:
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APK_PATH }}/${{ env.APK_NAME }}
+
+      - name: Publish unsigned Release
+        uses: deep-soft/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            ${{ env.APK_PATH }}/${{ env.APK_NAME }}
+
+      - name: Prepare for sign apk
+        run: |
+          ls -l        
+          mkdir -p signed-apk; pushd signed-apk
+          ls -l
+          cp ../${{ env.APK_PATH }}/${{ env.APK_NAME }} .
+          ls -l
+
+      - uses: deep-soft/sign-android-release@master
+        name: Sign app APK
+        continue-on-error: true
+        if: env.ANDROID_SIGNING_KEY != null
+        id: sign-android
+        with:
+          releaseDirectory: ./signed-apk
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          alias: ${{ secrets.ANDROID_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        env:
+          # override default build-tools version (29.0.3) -- optional
+          BUILD_TOOLS_VERSION: "30.0.2"
+
+      - name: Upload Artifacts
+        continue-on-error: true
+        if: env.ANDROID_SIGNING_KEY != null
+        uses: deep-soft/upload-artifact@v3
+        with:
+          name: ${{ env.APK_NAME_SIGNED }}
+          path: ${{steps.sign-android.outputs.signedReleaseFile}}
+
+      - name: Publish signed apk package
+        continue-on-error: true
+        if: env.ANDROID_SIGNING_KEY != null
+        uses: deep-soft/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            ${{steps.sign-android.outputs.signedReleaseFile}}

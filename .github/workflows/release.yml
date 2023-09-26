@@ -26,7 +26,11 @@ jobs:
           prg_vercode=$(grep VERSION_CODE gradle.properties | awk -F "=" '{print $2}')
           echo "Version: $prg_version"
           echo "Vercode: $prg_vercode"
-          echo "VERSION=$prg_version_$prg_vercode" >> $GITHUB_ENV
+          echo "VERSION=$prg_version.$prg_vercode" >> $GITHUB_ENV
+
+      - name: Print Version
+        run: |
+          echo "Version: $VERSION"
 
       - name: Setup JDK 11
         uses: deep-soft/setup-java@v3

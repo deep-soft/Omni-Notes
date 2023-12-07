@@ -71,7 +71,7 @@ jobs:
         uses: deep-soft/action-gh-release@v1
         with:
           prerelease: true
-          tag_name: ${{ env.TAG_NAME }}
+          tag_name: ${{ env.TAG_NAME }}-${{ env.VERSION }}
           files: |
             "${{ env.APK_PATH }}/${{ env.APK_NAME }}"
 
@@ -111,7 +111,6 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null
         uses: deep-soft/action-gh-release@v1
         with:
-          prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
             ${{steps.sign-android.outputs.signedReleaseFile}}

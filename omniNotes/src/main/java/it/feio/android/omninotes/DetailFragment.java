@@ -25,8 +25,6 @@ import static it.feio.android.omninotes.BaseActivity.TRANSITION_VERTICAL;
 import static it.feio.android.omninotes.MainActivity.FRAGMENT_DETAIL_TAG;
 import static it.feio.android.omninotes.MainActivity.FRAGMENT_SKETCH_TAG;
 import static it.feio.android.omninotes.OmniNotes.getAppContext;
-import static it.feio.android.omninotes.helpers.GeocodeProviderBaseFactory.checkHighAccuracyLocationProvider;
-import static it.feio.android.omninotes.helpers.GeocodeProviderBaseFactory.getProvider;
 import static it.feio.android.omninotes.utils.ConstantsBase.ACTION_DISMISS;
 import static it.feio.android.omninotes.utils.ConstantsBase.ACTION_FAB_TAKE_PHOTO;
 import static it.feio.android.omninotes.utils.ConstantsBase.ACTION_MERGE;
@@ -74,7 +72,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -112,7 +109,6 @@ import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.Toast;
-import androidx.core.content.ContextCompat;
 import androidx.core.util.Pair;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentTransaction;
@@ -1230,10 +1226,14 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
   private void categorizeNote() {
     var currentCategory = noteTmp.getCategory() != null ? String.valueOf(noteTmp.getCategory().getId()) : null;
+    var  originalCategory = noteOriginal.getCategory() != null ? String.valueOf(noteOriginal.getCategory().getId()) : null;
     final var categories = Observable.from(DbHelper.getInstance().getCategories())
         .map(category -> {
-          if (String.valueOf(category.getId()).equals(currentCategory)) {
+          if (String.valueOf(category.getId()).equals(currentCategory) && currentCategory != originalCategory) {
             category.setCount(category.getCount() + 1);
+          }
+          if (String.valueOf(category.getId()).equals(originalCategory) && currentCategory != originalCategory) {
+            category.setCount(category.getCount() - 1);
           }
           return category;
         }).toList().toBlocking().single();
@@ -2184,12 +2184,6 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     startActivityForResult(filesIntent, FILES);
   }
 
-  private void askReadExternalStoragePermission() {
-    PermissionsHelper.requestPermission(getActivity(), Manifest.permission.READ_EXTERNAL_STORAGE,
-        R.string.permission_external_storage_detail_attachment,
-        binding.snackbarPlaceholder, this::startGetContentAction);
-  }
-
   public void onEventMainThread(PushbulletReplyEvent pushbulletReplyEvent) {
     String text =
         getNoteContent() + System.getProperty("line.separator") + pushbulletReplyEvent.getMessage();
@@ -2323,13 +2317,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           takeVideo();
           break;
         case R.id.files:
-          if (ContextCompat
-              .checkSelfPermission(getActivity(), Manifest.permission.READ_EXTERNAL_STORAGE) ==
-              PackageManager.PERMISSION_GRANTED) {
             startGetContentAction();
-          } else {
-            askReadExternalStoragePermission();
-          }
           break;
         case R.id.sketch:
           takeSketch(null);

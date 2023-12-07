@@ -28,16 +28,8 @@ import java.util.Date;
 import java.util.Locale;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({DateUtils.class})
-@PowerMockIgnore("jdk.internal.reflect.*")
 public class DateUtilsTest {
 
   @Test
@@ -62,12 +54,22 @@ public class DateUtilsTest {
   }
 
   @Test
+  public void getNextMinute() {
+    var nextMinute = DateUtils.getNextMinute();
+
+    assertTrue(Calendar.getInstance().getTimeInMillis() < nextMinute);
+    assertTrue(nextMinute < Calendar.getInstance().getTimeInMillis() + 61 * 1000);
+  }
+
+  @Test
   public void getPresetReminder() {
-    long mockedNextMinute = 1497315847L;
-    Long testReminder = null;
-    PowerMockito.stub(PowerMockito.method(DateUtils.class, "getNextMinute"))
-        .toReturn(mockedNextMinute);
-    assertEquals(mockedNextMinute, DateUtils.getPresetReminder(testReminder));
+    var nextHour = Calendar.getInstance().getTimeInMillis() + 60 * 60 * 1000;
+    assertEquals(nextHour, DateUtils.getPresetReminder(nextHour));
+
+    var previousMinute = Calendar.getInstance().getTimeInMillis() - 60 * 1000;
+    var nextMinute = Calendar.getInstance().getTimeInMillis() + 61 * 1000;
+    var presetReminder = DateUtils.getPresetReminder(previousMinute);
+    assertTrue(Calendar.getInstance().getTimeInMillis() < presetReminder && presetReminder < nextMinute);
   }
 
   @Test

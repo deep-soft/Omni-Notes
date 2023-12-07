@@ -33,11 +33,14 @@ import java.util.Calendar
 class DocumentFileHelperTest : BaseAndroidTestCase() {
 
     private val text: String = "some content for the attachment"
+    private lateinit var tempFile: File
     private lateinit var documentFile: DocumentFileCompat
 
     @Before
     fun setUp() {
-        documentFile = DocumentFileCompat.Companion.fromFile(testContext, File.createTempFile("tempFile", "txt"))
+        tempFile = File.createTempFile("tempFile", "txt")
+        documentFile = DocumentFileCompat.Companion.fromFile(testContext, tempFile)
+        assertTrue(tempFile.exists())
         assertTrue(documentFile.exists())
     }
 
@@ -68,6 +71,13 @@ class DocumentFileHelperTest : BaseAndroidTestCase() {
     }
 
     @Test
+    fun delete_withFile() {
+        DocumentFileHelper.delete(testContext, tempFile);
+
+        assertFalse(documentFile.exists())
+    }
+
+    @Test
     fun copyFileTo() {
         writeIntoFile()
         val destinationFile = File.createTempFile("copyFileTo", Calendar.getInstance().timeInMillis.toString())
@@ -78,7 +88,7 @@ class DocumentFileHelperTest : BaseAndroidTestCase() {
     }
 
     @Test
-    @Ignore("runned manually")
+    @Ignore("run manually")
     fun copyFileTo_performance() {
         for (i in 1..50) copyFileTo()
 

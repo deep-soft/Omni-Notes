@@ -26,6 +26,9 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.RECORD_AUDIO" />
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
   <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
   <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
   <uses-permission android:name="com.android.launcher.permission.UNINSTALL_SHORTCUT" />
@@ -33,6 +36,7 @@
   <uses-permission android:name="com.pushbullet.android.permission.SEND_MESSAGES" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
   <uses-feature
     android:name="android.hardware.camera"

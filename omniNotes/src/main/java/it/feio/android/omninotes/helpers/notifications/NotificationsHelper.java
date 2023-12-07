@@ -20,12 +20,14 @@ package it.feio.android.omninotes.helpers.notifications;
 import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 import static it.feio.android.omninotes.helpers.IntentHelper.immutablePendingIntentFlag;
 
+import android.Manifest.permission;
 import android.annotation.TargetApi;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -33,12 +35,19 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Build.VERSION_CODES;
 import android.provider.Settings;
+import androidx.activity.ComponentActivity;
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationCompat.Builder;
+import androidx.core.content.ContextCompat;
 import com.pixplicity.easyprefs.library.Prefs;
+import de.greenrobot.event.EventBus;
 import it.feio.android.omninotes.MainActivity;
 import it.feio.android.omninotes.R;
+import it.feio.android.omninotes.async.bus.NotificationsGrantedEvent;
+import it.feio.android.omninotes.helpers.BuildHelper;
 import lombok.NonNull;
 
 
@@ -60,9 +69,9 @@ public class NotificationsHelper {
    * Creates the NotificationChannel, but only on API 26+ because the NotificationChannel class is
    * new and not in the support library
    */
-  @TargetApi(Build.VERSION_CODES.O)
+  @TargetApi(VERSION_CODES.O)
   public void initNotificationChannels() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    if (BuildHelper.isAboveOrEqual(VERSION_CODES.O)) {
 
       String soundFromPrefs = Prefs.getString("settings_notification_ringtone", null);
       Uri sound = soundFromPrefs != null ? Uri.parse(soundFromPrefs)
@@ -88,7 +97,7 @@ public class NotificationsHelper {
 
   @TargetApi(Build.VERSION_CODES.O)
   public void updateNotificationChannelsSound() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    if (BuildHelper.isAboveOrEqual(VERSION_CODES.O)) {
       Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       intent.putExtra(Settings.EXTRA_APP_PACKAGE, mContext.getPackageName());
@@ -119,13 +128,7 @@ public class NotificationsHelper {
         .setOngoing(isOngoing)
         .setColor(mContext.getResources().getColor(R.color.colorAccent))
         .setContentIntent(notifyIntent);
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      setLargeIcon(R.drawable.logo_notification_lollipop);
-    } else {
-      setLargeIcon(R.mipmap.ic_launcher);
-    }
-
+    setLargeIcon(R.drawable.logo_notification_lollipop);
     return this;
   }
 
@@ -145,7 +148,7 @@ public class NotificationsHelper {
   }
 
   public NotificationsHelper setRingtone(String ringtone) {
-    if (ringtone != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+    if (ringtone != null && BuildHelper.isBelow(VERSION_CODES.O)) {
       mBuilder.setSound(Uri.parse(ringtone));
     }
     return this;
@@ -236,6 +239,27 @@ public class NotificationsHelper {
 
   public void cancel(int id) {
     mNotificationManager.cancel(id);
+  }
+
+  public boolean checkNotificationsEnabled(Context context) {
+    return BuildHelper.isBelow(VERSION_CODES.TIRAMISU)
+        || BuildHelper.isDebugBuild()
+        || ContextCompat.checkSelfPermission(context, permission.POST_NOTIFICATIONS)
+        == PackageManager.PERMISSION_GRANTED;
+  }
+
+  public void askToEnableNotifications(ComponentActivity activity) {
+    if (BuildHelper.isAboveOrEqual(VERSION_CODES.TIRAMISU)) {
+      if (!checkNotificationsEnabled(activity)) {
+        activity.registerForActivityResult(new RequestPermission(),
+                isGranted -> EventBus.getDefault().post(new NotificationsGrantedEvent(isGranted)))
+            .launch(permission.POST_NOTIFICATIONS);
+      } else {
+        EventBus.getDefault().post(new NotificationsGrantedEvent(true));
+      }
+    } else {
+      EventBus.getDefault().post(new NotificationsGrantedEvent(true));
+    }
   }
 
 }

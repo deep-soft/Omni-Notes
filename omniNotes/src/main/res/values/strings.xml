@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-  ~ Copyright (C) 2013-2023 Federico Iosue (federico@iosue.it)
+  ~ Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License as published by
@@ -219,8 +219,9 @@
   <string name="remove_filter_archived">Show archived notes</string>
   <string name="permission_external_storage">Permission to write on external storage is needed to allow backups on public folders</string>
   <string name="permission_external_storage_detail_attachment">Permission to read on external storage is needed to allow attaching files from there</string>
-  <string name="permission_audio_recording">Permission to use microphone is needed  to record audio notes</string>
+  <string name="permission_audio_recording">Permission to use microphone is needed to record audio notes</string>
   <string name="permission_coarse_location">Permission to access to location is needed to add position informations to your notes</string>
+  <string name="permission_camera">Permission to use camera is required to take photos or videos</string>
   <string name="permission_not_granted">Permission not granted</string>
   <string name="checklist">Checklist</string>
   <string name="text_note">Text note</string>

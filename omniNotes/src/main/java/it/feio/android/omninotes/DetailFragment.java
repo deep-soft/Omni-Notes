@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,9 +16,12 @@
  */
 package it.feio.android.omninotes;
 
+import static android.Manifest.permission.CAMERA;
 import static android.content.Context.CLIPBOARD_SERVICE;
 import static android.content.Context.LAYOUT_INFLATER_SERVICE;
 import static android.content.pm.PackageManager.FEATURE_CAMERA;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+import static android.widget.Toast.LENGTH_SHORT;
 import static androidx.core.view.ViewCompat.animate;
 import static it.feio.android.omninotes.BaseActivity.TRANSITION_HORIZONTAL;
 import static it.feio.android.omninotes.BaseActivity.TRANSITION_VERTICAL;
@@ -66,6 +69,7 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 
 import android.Manifest;
+import android.Manifest.permission;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -85,6 +89,7 @@ import android.media.MediaRecorder;
 import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
@@ -109,6 +114,10 @@ import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 import androidx.core.util.Pair;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentTransaction;
@@ -117,6 +126,7 @@ import com.afollestad.materialdialogs.MaterialDialog;
 import com.neopixl.pixlui.components.edittext.EditText;
 import com.pixplicity.easyprefs.library.Prefs;
 import com.pushbullet.android.extension.MessagingExtension;
+
 import de.greenrobot.event.EventBus;
 import de.keyboardsurfer.android.widget.crouton.Style;
 import it.feio.android.checklistview.exceptions.ViewNotSupportedException;
@@ -135,6 +145,7 @@ import it.feio.android.omninotes.db.DbHelper;
 import it.feio.android.omninotes.exceptions.checked.ContentSecurityException;
 import it.feio.android.omninotes.exceptions.checked.UnhandledIntentException;
 import it.feio.android.omninotes.helpers.AttachmentsHelper;
+import it.feio.android.omninotes.helpers.BuildHelper;
 import it.feio.android.omninotes.helpers.IntentHelper;
 import it.feio.android.omninotes.helpers.LogDelegate;
 import it.feio.android.omninotes.helpers.PermissionsHelper;
@@ -819,7 +830,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         Attachment attachment = mAttachmentAdapter.getItem(attachmentPosition);
         Uri shareableAttachmentUri = mainActivity.getShareableAttachmentUri(attachment);
         if (shareableAttachmentUri == null) {
-          Toast.makeText(getActivity(), R.string.error_saving_attachments, Toast.LENGTH_SHORT).show();
+          Toast.makeText(getActivity(), R.string.error_saving_attachments, LENGTH_SHORT).show();
           break;
         }
         shareIntent.setType(StorageHelper.getMimeType(getAppContext(), attachment.getUri()));
@@ -1032,7 +1043,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     // performs a normal onBackPressed instead of returning back to ListActivity
     if (!afterSavedReturnsToList) {
       if (!TextUtils.isEmpty(exitMessage)) {
-        mainActivity.showToast(exitMessage, Toast.LENGTH_SHORT);
+        mainActivity.showToast(exitMessage, LENGTH_SHORT);
       }
       mainActivity.finish();
 
@@ -1314,38 +1325,47 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       mainActivity.showMessage(R.string.feature_not_available_on_this_device, ONStyle.ALERT);
       return;
     }
-    // Checks for created file validity
-    File f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_IMAGE_EXT);
-    if (f == null) {
-      mainActivity.showMessage(R.string.error, ONStyle.ALERT);
-      return;
-    }
-    attachmentUri = Uri.fromFile(f);
-    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-    intent.putExtra(MediaStore.EXTRA_OUTPUT,  FileProviderHelper.getFileProvider(f));
-    startActivityForResult(intent, TAKE_PHOTO);
+
+    PermissionsHelper.requestPermission(getActivity(), CAMERA,
+        R.string.permission_camera, binding.snackbarPlaceholder, () -> {
+          // Checks for created file validity
+          File f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_IMAGE_EXT);
+          if (f == null) {
+            mainActivity.showMessage(R.string.error, ONStyle.ALERT);
+            return;
+          }
+          attachmentUri = Uri.fromFile(f);
+          intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          intent.putExtra(MediaStore.EXTRA_OUTPUT, FileProviderHelper.getFileProvider(f));
+          startActivityForResult(intent, TAKE_PHOTO);
+        });
   }
 
   private void takeVideo() {
-    Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-    if (!IntentChecker.isAvailable(mainActivity, takeVideoIntent, new String[]{FEATURE_CAMERA})) {
+    var takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+    if (!IntentChecker.isAvailable(mainActivity, takeVideoIntent,
+        new String[]{FEATURE_CAMERA})) {
       mainActivity.showMessage(R.string.feature_not_available_on_this_device, ONStyle.ALERT);
       return;
     }
-    // File is stored in custom ON folder to speedup the attachment
-    File f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_VIDEO_EXT);
-    if (f == null) {
-      mainActivity.showMessage(R.string.error, ONStyle.ALERT);
-      return;
-    }
-    attachmentUri = Uri.fromFile(f);
-    takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-    takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT,  FileProviderHelper.getFileProvider(f));
-    String maxVideoSizeStr = "".equals(Prefs.getString("settings_max_video_size", ""))
-        ? "0" : Prefs.getString("settings_max_video_size", "");
-    long maxVideoSize = parseLong(maxVideoSizeStr) * 1024L * 1024L;
-    takeVideoIntent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxVideoSize);
-    startActivityForResult(takeVideoIntent, TAKE_VIDEO);
+
+    PermissionsHelper.requestPermission(getActivity(), CAMERA,
+        R.string.permission_camera, binding.snackbarPlaceholder, () -> {
+          // File is stored in custom ON folder to speedup the attachment
+          var f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_VIDEO_EXT);
+          if (f == null) {
+            mainActivity.showMessage(R.string.error, ONStyle.ALERT);
+            return;
+          }
+          attachmentUri = Uri.fromFile(f);
+          takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, FileProviderHelper.getFileProvider(f));
+          var maxVideoSizeStr = "".equals(Prefs.getString("settings_max_video_size", ""))
+              ? "0" : Prefs.getString("settings_max_video_size", "");
+          long maxVideoSize = parseLong(maxVideoSizeStr) * 1024L * 1024L;
+          takeVideoIntent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxVideoSize);
+          startActivityForResult(takeVideoIntent, TAKE_VIDEO);
+        });
   }
 
   private void takeSketch(Attachment attachment) {
@@ -1864,6 +1884,11 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
    * Pin note as ongoing notifications
    */
   private void pinNote() {
+    if (!new NotificationsHelper(getAppContext()).checkNotificationsEnabled(getAppContext())) {
+      mainActivity.showToast(getText(R.string.denied_notifications_permission), Toast.LENGTH_LONG);
+      return;
+    }
+    
     PendingIntent notifyIntent = IntentHelper
         .getNotePendingIntent(getContext(), SnoozeActivity.class, ACTION_PINNED, note);
 
@@ -2287,10 +2312,9 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
     @Override
     public void onClick(View v) {
-
       switch (v.getId()) {
-        // Photo from camera
         case R.id.camera:
+//          requestCameraPermission(TAKE_PHOTO);
           takePhoto();
           break;
         case R.id.recording:
@@ -2310,7 +2334,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           takeVideo();
           break;
         case R.id.files:
-            startGetContentAction();
+          startGetContentAction();
           break;
         case R.id.sketch:
           takeSketch(null);

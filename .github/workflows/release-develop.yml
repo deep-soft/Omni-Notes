@@ -1,4 +1,4 @@
-# 2023-12-07 09:30
+# 2024-03-12 15:30
 # .github/workflows/release.yml
 name: release - develop
 
@@ -34,13 +34,13 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Setup JDK 17
-        uses: deep-soft/setup-java@v3
+        uses: deep-soft/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 17
 
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
       
       - name: Build Release
         continue-on-error: true
@@ -49,26 +49,26 @@ jobs:
 
       - name: List Release
         run: |
-          ls -lR > lslR-release.txt
-          ls ./omniNotes/build/outputs/apk/foss/release >OmniNotes-release.txt
+          ls -lR > lslR-release.txt || true;
+          ls ./omniNotes/build/outputs/apk/foss/release >OmniNotes-release.txt || true;
           echo "APK_PATH=./omniNotes/build/outputs/apk/foss/release" >> $GITHUB_ENV
           echo "APK_NAME=OmniNotes-fossRelease-${{ env.VERSION }}.apk" >> $GITHUB_ENV
           echo "APK_NAME_SIGNED=OmniNotes-fossRelease-${{ env.VERSION }}-signed.apk" >> $GITHUB_ENV
 
       - name: Upload Artifact release
-        uses: deep-soft/upload-artifact@v3
+        uses: deep-soft/upload-artifact@v4
         with:
           name: lslR-release.txt
           path: lslR-release.txt
 
       - name: Upload apk
-        uses: deep-soft/upload-artifact@v3
+        uses: deep-soft/upload-artifact@v4
         with:
           name: "${{ env.APK_NAME }}"
           path: "${{ env.APK_PATH }}/${{ env.APK_NAME }}"
 
       - name: Publish unsigned Release
-        uses: deep-soft/action-gh-release@v1
+        uses: deep-soft/action-gh-release@v2.1
         with:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
@@ -77,13 +77,14 @@ jobs:
 
       - name: Prepare for sign apk
         run: |
-          ls -l        
-          mkdir -p signed-apk; pushd signed-apk
-          ls -l
-          cp "../${{ env.APK_PATH }}/${{ env.APK_NAME }}" .
-          ls -l
+          ls -l || true;
+          mkdir -p signed-apk; || true;
+          pushd signed-apk || true;
+          ls -l || true;
+          cp "../${{ env.APK_PATH }}/${{ env.APK_NAME }}" . || true;
+          ls -l || true;
 
-      - uses: deep-soft/sign-android-release@master
+      - uses: deep-soft/sign-android-release@v1
         name: Sign app APK
         continue-on-error: true
         if: env.ANDROID_SIGNING_KEY != null
@@ -101,7 +102,7 @@ jobs:
       - name: Upload Artifacts
         continue-on-error: true
         if: env.ANDROID_SIGNING_KEY != null
-        uses: deep-soft/upload-artifact@v3
+        uses: deep-soft/upload-artifact@v4
         with:
           name: ${{ env.APK_NAME_SIGNED }}
           path: ${{steps.sign-android.outputs.signedReleaseFile}}
@@ -109,7 +110,7 @@ jobs:
       - name: Publish signed apk package
         continue-on-error: true
         if: env.ANDROID_SIGNING_KEY != null
-        uses: deep-soft/action-gh-release@v1
+        uses: deep-soft/action-gh-release@v2.1
         with:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}

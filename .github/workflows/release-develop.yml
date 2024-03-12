@@ -1,4 +1,4 @@
-# 2024-03-12 15:30
+# 2024-03-12 22:00
 # .github/workflows/release.yml
 name: release - develop
 
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout source code
-        uses: deep-soft/checkout@v3
+        uses: deep-soft/checkout@v4
 
       - name: Get Version
         run: |
@@ -78,7 +78,7 @@ jobs:
       - name: Prepare for sign apk
         run: |
           ls -l || true;
-          mkdir -p signed-apk; || true;
+          mkdir -p signed-apk || true;
           pushd signed-apk || true;
           ls -l || true;
           cp "../${{ env.APK_PATH }}/${{ env.APK_NAME }}" . || true;

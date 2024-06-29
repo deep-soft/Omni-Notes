@@ -825,6 +825,7 @@ public class ListFragment extends BaseFragment implements OnViewTouchedListener,
           filterCategoryArchived(false);
           break;
         case R.id.menu_uncomplete_checklists:
+          item.setVisible(false);
           filterByUncompleteChecklists();
           break;
         case R.id.menu_tags:
@@ -907,6 +908,7 @@ public class ListFragment extends BaseFragment implements OnViewTouchedListener,
   private void switchNotesView() {
     boolean expandedView = Prefs.getBoolean(PREF_EXPANDED_VIEW, true);
     Prefs.edit().putBoolean(PREF_EXPANDED_VIEW, !expandedView).apply();
+    searchQueryInstant = searchQuery;
     // Change list view
     initNotesList(mainActivity.getIntent());
     // Called to switch menu voices

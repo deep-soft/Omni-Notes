@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,20 +35,18 @@ import it.feio.android.omninotes.MainActivity;
 import it.feio.android.omninotes.OmniNotes;
 import it.feio.android.omninotes.R;
 import it.feio.android.omninotes.db.DbHelper;
+import it.feio.android.omninotes.exceptions.BackupException;
 import it.feio.android.omninotes.helpers.BackupHelper;
 import it.feio.android.omninotes.helpers.DocumentFileHelper;
 import it.feio.android.omninotes.helpers.LogDelegate;
-import it.feio.android.omninotes.helpers.SpringImportHelper;
 import it.feio.android.omninotes.helpers.notifications.NotificationChannels.NotificationChannelNames;
 import it.feio.android.omninotes.helpers.notifications.NotificationsHelper;
 import it.feio.android.omninotes.models.Attachment;
 import it.feio.android.omninotes.models.Note;
 import it.feio.android.omninotes.models.listeners.OnAttachingFileListener;
 import it.feio.android.omninotes.utils.ReminderHelper;
-import it.feio.android.omninotes.utils.StorageHelper;
-import java.io.File;
+
 import java.io.IOException;
-import rx.Observable;
 
 public class DataBackupIntentService extends IntentService implements OnAttachingFileListener {
 
@@ -80,19 +78,9 @@ public class DataBackupIntentService extends IntentService implements OnAttachin
       exportData(intent);
     } else if (ACTION_DATA_IMPORT.equals(intent.getAction())) {
       importData(intent);
-    } else if (SpringImportHelper.ACTION_DATA_IMPORT_SPRINGPAD.equals(intent.getAction())) {
-      importDataFromSpringpad(intent, mNotificationsHelper);
     } else if (ACTION_DATA_DELETE.equals(intent.getAction())) {
       deleteData(intent);
     }
-  }
-
-  private void importDataFromSpringpad(Intent intent, NotificationsHelper mNotificationsHelper) {
-    new SpringImportHelper(OmniNotes.getAppContext())
-        .importDataFromSpringpad(intent, mNotificationsHelper);
-    String title = getString(R.string.data_import_completed);
-    String text = getString(R.string.click_to_refresh_application);
-    createNotification(intent, this, title, text);
   }
 
   private void exportData(Intent intent) {
@@ -109,13 +97,16 @@ public class DataBackupIntentService extends IntentService implements OnAttachin
 
   @TargetApi(VERSION_CODES.O)
   private synchronized void importData(Intent intent) {
-    var backupDir = Observable.from(DocumentFileCompat.Companion.fromTreeUri(getBaseContext(),
-            Uri.parse(Prefs.getString(PREF_BACKUP_FOLDER_URI, null))).listFiles())
-        .filter(f -> f.getName().equals(intent.getStringExtra(INTENT_BACKUP_NAME))).toBlocking()
-        .single();
+    var backupDir = DocumentFileCompat.Companion.fromTreeUri(getBaseContext(),
+            Uri.parse(Prefs.getString(PREF_BACKUP_FOLDER_URI, null))).listFiles().stream()
+        .filter(f -> f.getName().equals(intent.getStringExtra(INTENT_BACKUP_NAME))).findFirst();
 
-    BackupHelper.importNotes(backupDir);
-    BackupHelper.importAttachments(backupDir, mNotificationsHelper);
+    if (!backupDir.isPresent()) {
+      throw new BackupException("Backup folder not found", new RuntimeException());
+    }
+
+    BackupHelper.importNotes(backupDir.get());
+    BackupHelper.importAttachments(backupDir.get(), mNotificationsHelper);
 
     resetReminders();
     mNotificationsHelper.cancel();
@@ -133,28 +124,30 @@ public class DataBackupIntentService extends IntentService implements OnAttachin
 
   private synchronized void deleteData(Intent intent) {
     String backupName = intent.getStringExtra(INTENT_BACKUP_NAME);
-    var backupDir = Observable.from(DocumentFileCompat.Companion.fromTreeUri(getBaseContext(),
-            Uri.parse(Prefs.getString(PREF_BACKUP_FOLDER_URI, null))).listFiles())
-        .filter(f -> f.getName().equals(intent.getStringExtra(INTENT_BACKUP_NAME))).toBlocking()
-        .single();
-    try {
-      if (DocumentFileHelper.delete(backupDir)) {
-        mNotificationsHelper.finish(getString(R.string.data_deletion_completed),
-            backupName + " " + getString(R.string.deleted));
-      } else {
-        LogDelegate.e("Can't delete backup " + backupName);
+    var backupDir = DocumentFileCompat.Companion.fromTreeUri(getBaseContext(),
+            Uri.parse(Prefs.getString(PREF_BACKUP_FOLDER_URI, null))).listFiles().stream()
+        .filter(f -> f.getName().equals(intent.getStringExtra(INTENT_BACKUP_NAME)))
+        .findFirst();
+
+    if (backupDir.isPresent()) {
+      try {
+        if (DocumentFileHelper.delete(backupDir.get())) {
+          mNotificationsHelper.finish(getString(R.string.data_deletion_completed),
+              backupName + " " + getString(R.string.deleted));
+        } else {
+          LogDelegate.e("Can't delete backup " + backupName);
+          mNotificationsHelper.finish(getString(R.string.data_deletion_error), backupName);
+        }
+      } catch (IOException e) {
+        LogDelegate.e("Can't delete backup " + backupName, e);
         mNotificationsHelper.finish(getString(R.string.data_deletion_error), backupName);
       }
-    } catch (IOException e) {
-      LogDelegate.e("Can't delete backup " + backupName, e);
-      mNotificationsHelper.finish(getString(R.string.data_deletion_error), backupName);
     }
   }
 
   private void createNotification(Intent intent, Context context, String title, String message) {
     Intent intentLaunch;
-    if (DataBackupIntentService.ACTION_DATA_IMPORT.equals(intent.getAction())
-        || SpringImportHelper.ACTION_DATA_IMPORT_SPRINGPAD.equals(intent.getAction())) {
+    if (DataBackupIntentService.ACTION_DATA_IMPORT.equals(intent.getAction())) {
       intentLaunch = new Intent(context, MainActivity.class);
       intentLaunch.setAction(ACTION_RESTART_APP);
     } else {

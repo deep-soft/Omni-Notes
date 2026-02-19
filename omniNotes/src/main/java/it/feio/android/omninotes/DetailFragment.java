@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,6 @@ import static android.Manifest.permission.CAMERA;
 import static android.content.Context.CLIPBOARD_SERVICE;
 import static android.content.Context.LAYOUT_INFLATER_SERVICE;
 import static android.content.pm.PackageManager.FEATURE_CAMERA;
-import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.widget.Toast.LENGTH_SHORT;
 import static androidx.core.view.ViewCompat.animate;
 import static it.feio.android.omninotes.BaseActivity.TRANSITION_HORIZONTAL;
@@ -69,7 +68,6 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 
 import android.Manifest;
-import android.Manifest.permission;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -83,13 +81,13 @@ import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.location.Address;
 import android.location.Location;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.ThumbnailUtils;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
@@ -110,23 +108,16 @@ import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
 import android.view.animation.AnimationUtils;
-import android.widget.AutoCompleteTextView;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.Toast;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.core.content.ContextCompat;
 import androidx.core.util.Pair;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentTransaction;
-import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.neopixl.pixlui.components.edittext.EditText;
 import com.pixplicity.easyprefs.library.Prefs;
 import com.pushbullet.android.extension.MessagingExtension;
-
 import de.greenrobot.event.EventBus;
 import de.keyboardsurfer.android.widget.crouton.Style;
 import it.feio.android.checklistview.exceptions.ViewNotSupportedException;
@@ -145,13 +136,14 @@ import it.feio.android.omninotes.db.DbHelper;
 import it.feio.android.omninotes.exceptions.checked.ContentSecurityException;
 import it.feio.android.omninotes.exceptions.checked.UnhandledIntentException;
 import it.feio.android.omninotes.helpers.AttachmentsHelper;
-import it.feio.android.omninotes.helpers.BuildHelper;
 import it.feio.android.omninotes.helpers.IntentHelper;
 import it.feio.android.omninotes.helpers.LogDelegate;
 import it.feio.android.omninotes.helpers.PermissionsHelper;
 import it.feio.android.omninotes.helpers.TagOpenerHelper;
 import it.feio.android.omninotes.helpers.date.DateHelper;
 import it.feio.android.omninotes.helpers.date.RecurrenceHelper;
+import it.feio.android.omninotes.helpers.location.GeocodeHelper;
+import it.feio.android.omninotes.helpers.location.LocationProviderFactory;
 import it.feio.android.omninotes.helpers.notifications.NotificationChannels.NotificationChannelNames;
 import it.feio.android.omninotes.helpers.notifications.NotificationsHelper;
 import it.feio.android.omninotes.models.Attachment;
@@ -162,7 +154,6 @@ import it.feio.android.omninotes.models.PasswordValidator.Result;
 import it.feio.android.omninotes.models.Tag;
 import it.feio.android.omninotes.models.adapters.AttachmentAdapter;
 import it.feio.android.omninotes.models.adapters.CategoryRecyclerViewAdapter;
-import it.feio.android.omninotes.models.adapters.PlacesAutoCompleteAdapter;
 import it.feio.android.omninotes.models.listeners.OnAttachingFileListener;
 import it.feio.android.omninotes.models.listeners.OnGeoUtilResultListener;
 import it.feio.android.omninotes.models.listeners.OnReminderPickedListener;
@@ -170,10 +161,10 @@ import it.feio.android.omninotes.models.listeners.RecyclerViewItemClickSupport;
 import it.feio.android.omninotes.models.views.ExpandableHeightGridView;
 import it.feio.android.omninotes.utils.AlphaManager;
 import it.feio.android.omninotes.utils.BitmapHelper;
+import it.feio.android.omninotes.utils.Constants;
 import it.feio.android.omninotes.utils.Display;
 import it.feio.android.omninotes.utils.FileHelper;
 import it.feio.android.omninotes.utils.FileProviderHelper;
-import it.feio.android.omninotes.utils.GeocodeHelper;
 import it.feio.android.omninotes.utils.IntentChecker;
 import it.feio.android.omninotes.utils.KeyboardUtils;
 import it.feio.android.omninotes.utils.PasswordHelper;
@@ -188,15 +179,14 @@ import it.feio.android.omninotes.utils.date.ReminderPickers;
 import it.feio.android.pixlui.links.TextLinkClickListener;
 import java.io.File;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.commons.collections4.CollectionUtils;
-import rx.Observable;
 
 
 public class DetailFragment extends BaseFragment implements OnReminderPickedListener,
@@ -295,12 +285,6 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   public void onAttach(Context context) {
     super.onAttach(context);
     EventBus.getDefault().post(new SwitchFragmentEvent(SwitchFragmentEvent.Direction.CHILDREN));
-  }
-
-  @Override
-  public void onStop() {
-    super.onStop();
-    GeocodeHelper.stop();
   }
 
   @Override
@@ -672,13 +656,11 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   }
 
   private void initViewLocation() {
-
-    DetailFragment detailFragment = this;
+    var detailFragment = this;
 
     if (isNoteLocationValid()) {
       if (TextUtils.isEmpty(noteTmp.getAddress())) {
-        //FIXME: What's this "sasd"?
-        GeocodeHelper.getAddressFromCoordinates(new Location("sasd"), detailFragment);
+        noteTmp.setAddress(noteTmp.getLatitude() + ", " + noteTmp.getLongitude());
       } else {
         binding.fragmentDetailContent.location.setText(noteTmp.getAddress());
         binding.fragmentDetailContent.location.setVisibility(View.VISIBLE);
@@ -695,8 +677,8 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
           + "?q=" + noteTmp.getLatitude() + ',' + noteTmp.getLongitude();
       Intent locationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uriString));
       if (!IntentChecker.isAvailable(mainActivity, locationIntent, null)) {
-        uriString = "http://maps.google.com/maps?q=" + noteTmp.getLatitude() + ',' + noteTmp
-            .getLongitude();
+        uriString = String.format(Constants.MAPS_API, noteTmp.getLatitude(), noteTmp
+            .getLongitude());
         locationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uriString));
       }
       startActivity(locationIntent);
@@ -718,9 +700,12 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
 
   private void getLocation(OnGeoUtilResultListener onGeoUtilResultListener) {
     PermissionsHelper
-        .requestPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION, R.string
+        .requestPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION, R.string
                 .permission_coarse_location, binding.snackbarPlaceholder,
-            () -> GeocodeHelper.getLocation(onGeoUtilResultListener));
+            () -> {
+          LocationProviderFactory.INSTANCE.getProvider().instantiate();
+          LocationProviderFactory.INSTANCE.getProvider().getLocation(onGeoUtilResultListener);
+        });
   }
 
   private void initViewAttachments() {
@@ -938,7 +923,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   }
 
   private void displayLocationDialog() {
-    getLocation(new OnGeoUtilResultListenerImpl(mainActivity, mFragment, noteTmp));
+    getLocation(this);
   }
 
   @Override
@@ -953,14 +938,16 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
         binding.fragmentDetailContent.location.setVisibility(View.VISIBLE);
         binding.fragmentDetailContent.location.setText(noteTmp.getAddress());
       } else {
-        GeocodeHelper.getAddressFromCoordinates(location, mFragment);
+        // Bypassing reverse geolocation. From now on coordinates only will be used
+        // GeocodeHelper.getAddressFromCoordinates(location, mFragment);
+        onAddressResolved(null);
       }
     }
   }
 
   @Override
-  public void onLocationUnavailable() {
-    mainActivity.showMessage(R.string.location_not_found, ONStyle.ALERT);
+  public void onLocationUnavailable(Exception e) {
+    mainActivity.showMessage(R.string.location_not_found + ": " + e.getMessage(), ONStyle.ALERT);
   }
 
   public void onLocationNotEnabled(){
@@ -984,13 +971,18 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   }
 
   @Override
-  public void onCoordinatesResolved(Location location, String address) {
-    if (location != null) {
-      noteTmp.setLatitude(location.getLatitude());
-      noteTmp.setLongitude(location.getLongitude());
-      noteTmp.setAddress(address);
+  public void onCoordinatesUnresolved(Exception e) {
+    mainActivity.showMessage(R.string.location_not_found + ": " + e.getMessage(), ONStyle.ALERT);
+  }
+
+  @Override
+  public void onCoordinatesResolved(Address address) {
+    if (address != null) {
+      noteTmp.setLatitude(address.getLatitude());
+      noteTmp.setLongitude(address.getLongitude());
+      noteTmp.setAddress(address.getAddressLine(0));
       binding.fragmentDetailContent.location.setVisibility(View.VISIBLE);
-      binding.fragmentDetailContent.location.setText(address);
+      binding.fragmentDetailContent.location.setText(address.getAddressLine(0));
       fade(binding.fragmentDetailContent.location, true);
     } else {
       mainActivity.showMessage(R.string.location_not_found, ONStyle.ALERT);
@@ -1236,7 +1228,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   private void categorizeNote() {
     var currentCategory = noteTmp.getCategory() != null ? String.valueOf(noteTmp.getCategory().getId()) : null;
     var  originalCategory = noteOriginal.getCategory() != null ? String.valueOf(noteOriginal.getCategory().getId()) : null;
-    final var categories = Observable.from(DbHelper.getInstance().getCategories())
+    final var categories = DbHelper.getInstance().getCategories().stream()
         .map(category -> {
           if (String.valueOf(category.getId()).equals(currentCategory) && currentCategory != originalCategory) {
             category.setCount(category.getCount() + 1);
@@ -1245,7 +1237,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
             category.setCount(category.getCount() - 1);
           }
           return category;
-        }).toList().toBlocking().single();
+        }).collect(Collectors.toList());
 
     var dialogBuilder = new MaterialDialog.Builder(mainActivity)
         .title(R.string.categorize_as)
@@ -1326,7 +1318,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       return;
     }
 
-    PermissionsHelper.requestPermission(getActivity(), CAMERA,
+    PermissionsHelper.requestPermission(this, CAMERA,
         R.string.permission_camera, binding.snackbarPlaceholder, () -> {
           // Checks for created file validity
           File f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_IMAGE_EXT);
@@ -1349,7 +1341,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
       return;
     }
 
-    PermissionsHelper.requestPermission(getActivity(), CAMERA,
+    PermissionsHelper.requestPermission(this, CAMERA,
         R.string.permission_camera, binding.snackbarPlaceholder, () -> {
           // File is stored in custom ON folder to speedup the attachment
           var f = StorageHelper.createNewAttachmentFile(mainActivity, MIME_TYPE_VIDEO_EXT);
@@ -1795,7 +1787,7 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
   }
 
   private void startRecording(View v) {
-    PermissionsHelper.requestPermission(getActivity(), Manifest.permission.RECORD_AUDIO,
+    PermissionsHelper.requestPermission(this, Manifest.permission.RECORD_AUDIO,
         R.string.permission_audio_recording, binding.snackbarPlaceholder, () -> {
 
           isRecording = true;
@@ -2214,102 +2206,6 @@ public class DetailFragment extends BaseFragment implements OnReminderPickedList
     note = new Note(event.getNotes().get(0));
     if (goBack) {
       goHome();
-    }
-  }
-
-  private static class OnGeoUtilResultListenerImpl implements OnGeoUtilResultListener {
-
-    private final WeakReference<MainActivity> mainActivityWeakReference;
-    private final WeakReference<DetailFragment> detailFragmentWeakReference;
-    private final WeakReference<Note> noteTmpWeakReference;
-
-    OnGeoUtilResultListenerImpl(MainActivity activity, DetailFragment mFragment, Note noteTmp) {
-      mainActivityWeakReference = new WeakReference<>(activity);
-      detailFragmentWeakReference = new WeakReference<>(mFragment);
-      noteTmpWeakReference = new WeakReference<>(noteTmp);
-    }
-
-    @Override
-    public void onAddressResolved(String address) {
-      // Nothing to do
-    }
-
-    @Override
-    public void onCoordinatesResolved(Location location, String address) {
-      // Nothing to do
-    }
-
-    @Override
-    public void onLocationUnavailable() {
-      mainActivityWeakReference.get().showMessage(R.string.location_not_found, ONStyle.ALERT);
-    }
-    @Override
-    public void onLocationNotEnabled(){
-      mainActivityWeakReference.get().showMessage(R.string.location_not_enabled,ONStyle.ALERT);
-    }
-    @Override
-    public void onLocationRetrieved(Location location) {
-      if (!checkWeakReferences()) {
-        return;
-      }
-
-      if (location == null) {
-        return;
-      }
-      LayoutInflater inflater = mainActivityWeakReference.get().getLayoutInflater();
-      View v = inflater.inflate(R.layout.dialog_location, null);
-      final AutoCompleteTextView autoCompView = v.findViewById(R.id
-          .auto_complete_location);
-      autoCompView.setHint(mainActivityWeakReference.get().getString(R.string.search_location));
-      autoCompView
-          .setAdapter(new PlacesAutoCompleteAdapter(mainActivityWeakReference.get(), R.layout
-              .simple_text_layout));
-      final MaterialDialog dialog = new MaterialDialog.Builder(mainActivityWeakReference.get())
-          .customView(autoCompView, false)
-          .positiveText(R.string.use_current_location)
-          .onPositive((dialog1, which) -> {
-            if (TextUtils.isEmpty(autoCompView.getText().toString())) {
-              noteTmpWeakReference.get().setLatitude(location.getLatitude());
-              noteTmpWeakReference.get().setLongitude(location.getLongitude());
-              GeocodeHelper.getAddressFromCoordinates(location, detailFragmentWeakReference.get());
-            } else {
-              GeocodeHelper.getCoordinatesFromAddress(autoCompView.getText().toString(),
-                  detailFragmentWeakReference.get());
-            }
-          })
-          .build();
-      autoCompView.addTextChangedListener(new TextWatcher() {
-        @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-          // Nothing to do
-        }
-
-        @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
-          if (s.length() != 0) {
-            dialog
-                .setActionButton(DialogAction.POSITIVE, mainActivityWeakReference.get().getString(R
-                    .string.confirm));
-          } else {
-            dialog
-                .setActionButton(DialogAction.POSITIVE, mainActivityWeakReference.get().getString(R
-                    .string
-                    .use_current_location));
-          }
-        }
-
-        @Override
-        public void afterTextChanged(Editable s) {
-          // Nothing to do
-        }
-      });
-      dialog.show();
-    }
-
-    private boolean checkWeakReferences() {
-      return mainActivityWeakReference.get() != null && !mainActivityWeakReference.get()
-          .isFinishing()
-          && detailFragmentWeakReference.get() != null && noteTmpWeakReference.get() != null;
     }
   }
 

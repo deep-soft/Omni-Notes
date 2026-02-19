@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
 package it.feio.android.omninotes.testutils;
 
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
-import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.RECORD_AUDIO;
@@ -102,7 +101,7 @@ public class BaseAndroidTestCase {
       .grant(android.Manifest.permission.CAMERA);
 
   private static void grantPermissions() {
-    GrantPermissionRule.grant(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION, READ_EXTERNAL_STORAGE, RECORD_AUDIO);
+    GrantPermissionRule.grant(ACCESS_COARSE_LOCATION, READ_EXTERNAL_STORAGE, RECORD_AUDIO);
     if (BuildHelper.isBelowOrEqual(VERSION_CODES.Q)) {
       GrantPermissionRule.grant(WRITE_EXTERNAL_STORAGE);
     }

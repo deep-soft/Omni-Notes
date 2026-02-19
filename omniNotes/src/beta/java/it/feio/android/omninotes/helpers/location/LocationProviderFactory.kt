@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,9 +14,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package it.feio.android.omninotes.helpers.location
 
-package it.feio.android.omninotes.helpers;
+import lombok.experimental.UtilityClass
 
-public class GeocodeProviderFactory extends GeocodeProviderBaseFactory {
+@UtilityClass
+object LocationProviderFactory {
 
+    @Override
+    fun getProvider(): LocationProvider {
+        return FuseLocationProvider()
+    }
 }

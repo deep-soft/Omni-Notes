@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.FlakyTest;
 import it.feio.android.omninotes.testutils.BaseAndroidTestCase;
 import it.feio.android.omninotes.OmniNotes;
+import it.feio.android.omninotes.helpers.location.GeocodeHelper;
+
 import java.io.IOException;
 import org.junit.Assert;
 import org.junit.Test;

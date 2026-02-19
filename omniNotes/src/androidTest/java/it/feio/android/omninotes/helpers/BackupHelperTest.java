@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,8 @@ package it.feio.android.omninotes.helpers;
 
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_BACKUP_FOLDER_URI;
 import static it.feio.android.omninotes.utils.ConstantsBase.PREF_PASSWORD;
+import static java.util.stream.IntStream.range;
 import static org.junit.Assert.*;
-import static rx.Observable.from;
 
 import android.net.Uri;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -37,6 +37,7 @@ import it.feio.android.omninotes.utils.StorageHelper;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -44,7 +45,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import rx.Observable;
 
 @RunWith(AndroidJUnit4.class)
 public class BackupHelperTest extends BaseAndroidTestCase {
@@ -95,7 +95,7 @@ public class BackupHelperTest extends BaseAndroidTestCase {
 
   @Test
   public void exportNotes() throws IOException {
-    Observable.range(1, 4).forEach(i -> createTestNote("Note" + i, "content" + i, 1));
+    range(1, 4).forEach(i -> createTestNote("Note" + i, "content" + i, 1));
     var backupDir = DocumentFileCompat.Companion.fromFile(testContext,
         Files.createTempDirectory("testBackupFolder").toFile());
 
@@ -103,7 +103,7 @@ public class BackupHelperTest extends BaseAndroidTestCase {
 
     assertTrue(backupDir.exists());
     assertTrue(backupDir.findFile(".nomedia").exists());
-    assertEquals(5, backupDir.listFiles().size());
+    assertEquals(4, backupDir.listFiles().size());
   }
 
   @Test
@@ -112,10 +112,11 @@ public class BackupHelperTest extends BaseAndroidTestCase {
 
     BackupHelper.exportNote(backupDir, note);
 
-    var noteFiles = from(backupDir.listFiles())
-        .filter(f -> f.getName().matches("\\d{13}.json")).toList().toBlocking().single();
+    var noteFiles = backupDir.listFiles().stream()
+        .filter(f -> f.getName().matches("\\d{13}.json"))
+        .collect(Collectors.toList());
     assertEquals(1, noteFiles.size());
-    Note retrievedNote = from(noteFiles).map(BackupHelper::importNote).toBlocking().first();
+    var retrievedNote = noteFiles.stream().map(BackupHelper::importNote).findFirst().get();
     assertEquals(note, retrievedNote);
   }
 

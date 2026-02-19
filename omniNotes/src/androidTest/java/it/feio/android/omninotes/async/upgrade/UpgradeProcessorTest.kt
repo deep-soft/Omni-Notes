@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ import it.feio.android.omninotes.utils.FileProviderHelper.getShareableUri
 import it.feio.android.omninotes.utils.StorageHelper.createAttachmentFromUri
 import org.junit.Assert.*
 import org.junit.Test
-import rx.Observable.from
 
 class UpgradeProcessorTest : BaseAndroidTestCase() {
 
@@ -32,16 +31,16 @@ class UpgradeProcessorTest : BaseAndroidTestCase() {
         // Preparation of database state existent pre-612 version.
         // Attachment used to be stored with "content://" scheme that allowed sharing but broke backups.
         val note = createTestNote("t", "c", 1)
-        var attachment = createAttachmentFromUri(testContext, note.attachmentsList[0].uri)
+        val attachment = createAttachmentFromUri(testContext, note.attachmentsList[0].uri)
         attachment?.uri = getShareableUri(attachment)
         note.attachmentsList[0] = attachment
         dbHelper.updateNote(note, false)
 
-        assertFalse(from(dbHelper.allAttachments).all { a -> a.uri.scheme != "content" }.toBlocking().single())
+        assertFalse(dbHelper.allAttachments.stream().allMatch { a -> a.uri.scheme != "content" });
 
         UpgradeProcessor.process(624, 625)
 
-        assertTrue(from(dbHelper.allAttachments).all { a -> a.uri.scheme != "content" }.toBlocking().single())
+        assertTrue(dbHelper.allAttachments.stream().allMatch { a -> a.uri.scheme != "content" });
     }
 
 }

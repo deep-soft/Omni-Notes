@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2024 Federico Iosue (federico@iosue.it)
+ * Copyright (C) 2013-2025 Federico Iosue (developer@omninotes.app)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,10 +17,9 @@
 
 package it.feio.android.omninotes.testutils;
 
-import static rx.Observable.from;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.Assert;
@@ -58,8 +57,7 @@ public class RetryableAssert {
   }
 
   private static Method getMethod(@Nonnull Object o, @Nonnull String methodName) {
-    return from(o.getClass().getMethods()).filter(m -> methodName.equals(m.getName()))
-        .toBlocking().first();
+    return Stream.of(o.getClass().getMethods()).filter(m -> methodName.equals(m.getName())).findFirst().orElseThrow();
   }
 
 }
